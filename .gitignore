@@ -6,6 +6,7 @@ __pycache__/
 *.pkl
 *.bin
 *.gz
+*.zip
 *.py[cod]
 *$py.class
 
