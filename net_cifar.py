@@ -7,12 +7,12 @@ class Generator(nn.Module):
     def __init__(self, z_size, d=128, channels=3):
         super(Generator, self).__init__()
         self.main = nn.Sequential(
-            nn.ConvTranspose2d(100, 512, 4, 1, 0, bias = False),
-            nn.BatchNorm2d(512),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(512, 256, 4, 2, 1, bias = False),
+            nn.ConvTranspose2d(z_size, 256, 4, 1, 0, bias = False),
             nn.BatchNorm2d(256),
             nn.ReLU(True),
+            # nn.ConvTranspose2d(512, 256, 4, 2, 1, bias = False),
+            # nn.BatchNorm2d(256),
+            # nn.ReLU(True),
             nn.ConvTranspose2d(256, 128, 4, 2, 1, bias = False),
             nn.BatchNorm2d(128),
             nn.ReLU(True),
@@ -27,13 +27,6 @@ class Generator(nn.Module):
         for m in self._modules:
             normal_init(self._modules[m], mean, std)
 
-    # forward method
-    # def forward(self, input):#, label):
-    #     x = F.relu(self.deconv1_1_bn(self.deconv1_1(input)))
-    #     x = F.relu(self.deconv2_bn(self.deconv2(x)))
-    #     x = F.relu(self.deconv3_bn(self.deconv3(x)))
-    #     x = F.tanh(self.deconv4(x)) * 0.5 + 0.5
-    #     return x
     def forward(self, input):
         output = self.main(input)
         return output
@@ -52,31 +45,17 @@ class Discriminator(nn.Module):
             nn.Conv2d(128, 256, 4, 2, 1, bias = False),
             nn.BatchNorm2d(256),
             nn.LeakyReLU(0.2, inplace = True),
-            nn.Conv2d(256, 512, 4, 2, 1, bias = False),
-            nn.BatchNorm2d(512),
-            nn.LeakyReLU(0.2, inplace = True),
-            nn.Conv2d(512, 1, 4, 1, 0, bias = False),
+            # nn.Conv2d(256, 512, 4, 2, 1, bias = False),
+            # nn.BatchNorm2d(512),
+            # nn.LeakyReLU(0.2, inplace = True),
+            nn.Conv2d(256, 1, 4, 1, 0, bias = False),
             nn.Sigmoid()
         )
-        # self.conv1_1 = nn.Conv2d(channels, d//2, 4, 2, 1)
-        # self.conv2 = nn.Conv2d(d // 2, d*2, 4, 2, 1)
-        # self.conv2_bn = nn.BatchNorm2d(d*2)
-        # self.conv3 = nn.Conv2d(d*2, d*4, 4, 2, 1)
-        # self.conv3_bn = nn.BatchNorm2d(d*4)
-        # self.conv4 = nn.Conv2d(d * 4, 1, 4, 1, 0)
 
-    # weight_init
     def weight_init(self, mean, std):
         for m in self._modules:
             normal_init(self._modules[m], mean, std)
 
-    # forward method
-    # def forward(self, input):
-    #     x = F.leaky_relu(self.conv1_1(input), 0.2)
-    #     x = F.leaky_relu(self.conv2_bn(self.conv2(x)), 0.2)
-    #     x = F.leaky_relu(self.conv3_bn(self.conv3(x)), 0.2)
-    #     x = F.sigmoid(self.conv4(x))
-    #     return x
     def forward(self, input):
         output = self.main(input)
         return output.view(-1)
@@ -124,12 +103,6 @@ class Encoder(nn.Module):
     # initializers
     def __init__(self, z_size, d=128, channels=3):
         super(Encoder, self).__init__()
-        # self.conv1_1 = nn.Conv2d(channels, d//2, 4, 2, 1)
-        # self.conv2 = nn.Conv2d(d // 2, d*2, 4, 2, 1)
-        # self.conv2_bn = nn.BatchNorm2d(d*2)
-        # self.conv3 = nn.Conv2d(d*2, d*4, 4, 2, 1)
-        # self.conv3_bn = nn.BatchNorm2d(d*4)
-        # self.conv4 = nn.Conv2d(d * 4, z_size, 4, 1, 0)
         self.main = nn.Sequential(
             nn.Conv2d(channels, 64, 4, 2, 1, bias = False),
             nn.LeakyReLU(0.2, inplace = True),
@@ -139,10 +112,10 @@ class Encoder(nn.Module):
             nn.Conv2d(128, 256, 4, 2, 1, bias = False),
             nn.BatchNorm2d(256),
             nn.LeakyReLU(0.2, inplace = True),
-            nn.Conv2d(256, 512, 4, 2, 1, bias = False),
-            nn.BatchNorm2d(512),
-            nn.LeakyReLU(0.2, inplace = True),
-            nn.Conv2d(512, z_size, 4, 1, 0, bias = False),
+            # nn.Conv2d(256, 512, 4, 2, 1, bias = False),
+            # nn.BatchNorm2d(512),
+            # nn.LeakyReLU(0.2, inplace = True),
+            nn.Conv2d(256, z_size, 4, 1, 0, bias = False),
             # nn.Sigmoid()
         )
 
@@ -187,11 +160,3 @@ def normal_init(m, mean, std):
     if isinstance(m, nn.ConvTranspose2d) or isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
         m.weight.data.normal_(mean, std)
         m.bias.data.zero_()
-        
-# def weights_init(m):
-#     classname = m.__class__.__name__
-#     if classname.find('Conv') != -1:
-#         m.weight.data.normal_(0.0, 0.02)
-#     elif classname.find('BatchNorm') != -1:
-#         m.weight.data.normal_(1.0, 0.02)
-#         m.bias.data.fill_(0)

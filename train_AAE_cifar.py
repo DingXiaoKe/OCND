@@ -32,6 +32,9 @@ from torchvision.datasets import MNIST
 from torchvision.datasets import CIFAR10
 from torchvision.datasets import ImageFolder
 import torchvision.transforms as transforms
+from sklearn.metrics import roc_auc_score
+from evaluate import evaluate
+from sklearn.metrics import roc_curve
 
 use_cuda = torch.cuda.is_available()
 
@@ -113,12 +116,12 @@ def Cutout(n_holes, length,train_set,train_label):
     # print(label)
     return train,label
 
-def load(dataset,batch_size,flag):
+def load(dataset,batch_size,flag,isize):
     # print(dataset)
     if dataset == "Cifar10" and flag == 1:
         transform = transforms.Compose(
             [
-                transforms.Scale(32),
+                transforms.Scale(isize),
                 transforms.ToTensor(),
                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
             ]
@@ -153,20 +156,12 @@ def load(dataset,batch_size,flag):
 def train(trainset,batch_size):
     lambd = 0.5
     zsize = 100
-    anomaly_class = 0
     cutout = True # whether cover the img
     n_holes = 1 # number of holes to cut out from image
     length = 32 # length of the holes
     TINY = 1e-15
+    train_epoch = 25
     isize = 64
-    workers = 8
-    train_epoch = 5
-    # print('start loading data')
-    # dataloader = load_cifar_data(anomaly_class,batch_size,isize,workers)
-
-    # length = len(dataloader['train'])
-    # print("Train set batch number:", length)
-
 
     G = Generator(zsize, channels=3)
     setup(G)
@@ -220,13 +215,6 @@ def train(trainset,batch_size):
         E.train()
         ZD.train()
         epoch_start_time = time.time()
-        if (epoch + 1) % 30 == 0:
-            G_optimizer.param_groups[0]['lr'] /= 4
-            D_optimizer.param_groups[0]['lr'] /= 4
-            GE_optimizer.param_groups[0]['lr'] /= 4
-            E_optimizer.param_groups[0]['lr'] /= 4
-            ZD_optimizer.param_groups[0]['lr'] /= 4
-            print("learning rate change!")
         
         for it,data in enumerate(trainset):
             #############################################
@@ -359,7 +347,7 @@ def train(trainset,batch_size):
                 #             'cifar/'+str(anomaly_class)+'/train/reconstruction_'+ str(epoch)+'_'+ str(it) + '.png', nrow=4)
                 iter_end_time = time.time()
                 per_iter_ptime = iter_end_time - epoch_start_time
-                print('[%s]-[%d/%d]-[%d/%d] - ptime: %.2f, Gloss: %.3f, Dloss: %.3f, ZDloss: %.3f, GEloss: %.3f, Eloss: %.3f' % ((anomaly_class),(epoch + 1), train_epoch,it, length, per_iter_ptime, G_train_loss, D_train_loss, ZD_train_loss, Recon_loss, E_loss))
+                print('[%d/%d]-[%d/%d] - ptime: %.2f, Gloss: %.3f, Dloss: %.3f, ZDloss: %.3f, GEloss: %.3f, Eloss: %.3f' % ((epoch + 1), train_epoch,it, length, per_iter_ptime, G_train_loss, D_train_loss, ZD_train_loss, Recon_loss, E_loss))
         print("Training finish!... save training results")
         model_dir = os.path.join('Model', 'Cifar')
         if not os.path.isdir(model_dir):
@@ -368,16 +356,17 @@ def train(trainset,batch_size):
         torch.save(E.state_dict(), '{}/Emodel_epoch{}.pkl'.format(model_dir,str(epoch)))
         torch.save(D.state_dict(), '{}/Dmodel_epoch{}.pkl'.format(model_dir,str(epoch)))
         torch.save(ZD.state_dict(), '{}/ZDmodel_epoch{}.pkl'.format(model_dir,str(epoch)))
+        torch.save(P.state_dict(), '{}/Pmodel_epoch{}.pkl'.format(model_dir,str(epoch)))
+        torch.save(C.state_dict(), '{}/Cmodel_epoch{}.pkl'.format(model_dir,str(epoch)))
     return None
+
 def test(testsetin,testsetout,batch_size):
     batch_size = batch_size
     z_size = 100
-    anomaly_class = 0
     test_epoch = 25
     best_roc_auc = 0
     best_prc_auc = 0
     best_f1_score = 0
-    noise_factor =.25
     print("start testing")
     for j in range(0,test_epoch):
         epoch = j
@@ -421,8 +410,22 @@ def test(testsetin,testsetout,batch_size):
             os.makedirs(directory)
         
         X_score = []
-        for it,data in enumerate(testsetin,testsetout):
-            x, labels = data
+        label = []
+        length1 = len(testsetin) // batch_size
+        labelin = torch.ones(length1 * batch_size)
+        for it,data in enumerate(testsetin):
+            x = data
+            x = Variable(x)
+            D_score, _ = D(x)
+            D_score = D_score.reshape((batch_size, 1))
+            _, D_score = P(D_score)
+            D_result = D_score.squeeze().detach().cpu().numpy()
+            X_score.append(D_result)
+        
+        length2 = len(testsetout) // batch_size
+        labelout = torch.zeros(length2 * batch_size)
+        for it,data in enumerate(testsetout):
+            x = data
             x = Variable(x)
             D_score, _ = D(x)
             D_score = D_score.reshape((batch_size, 1))
@@ -431,36 +434,73 @@ def test(testsetin,testsetout,batch_size):
             # _, P_real = P(D_real)
             D_result = D_score.squeeze().detach().cpu().numpy()
             X_score.append(D_result)
-            # print("start calculating")
-        X_score = np.array(X_score).reshape(length*batch_size, 2)
-        #print(X_score)
-        anomaly_score = X_score
-        y_label = y_label.append(labels)
 
-            
+        label = torch.cat((labelin,labelout),0)
+        length = length1 + length2
+        X_score = np.array(X_score).reshape(length*batch_size, 2)
+        anomaly_score = X_score
+
+        binary_class_labels_in_as_positive = np.zeros((length*batch_size, 2))
+        for i in range(len(label)):
+            binary_class_labels_in_as_positive[i, 1-label[i]] = 1.
+        binary_class_labels_out_as_positive = np.zeros((length*batch_size, 2))
+        for i in range(len(label)):
+            binary_class_labels_out_as_positive[i, 1-label[i]] = 1.
+        calculate(anomaly_score,label,binary_class_labels_in_as_positive,binary_class_labels_out_as_positive)
+    #     if f1_score > best_f1_score:
+    #         best_f1_score = f1_score
+    #     if roc_auc > best_roc_auc:
+    #         best_roc_auc = roc_auc
+    #     if prc_auc > best_prc_auc:
+    #         best_prc_auc = prc_auc
+    # print(best_f1_score)
+    # print(best_roc_auc)
+    # print(best_prc_auc)
+
+def calculate(anomaly_score,label,binary_class_labels_in_as_positive,binary_class_labels_out_as_positive):
+    path = "./Test/Fashion-MNIST"
+    roc_auc = evaluate(labels= binary_class_labels_in_as_positive, scores= anomaly_score, directory=path, metric='roc')
+    prc_auc_in = evaluate(labels= binary_class_labels_in_as_positive, scores= anomaly_score, directory=path, metric='auprc')
+    prc_auc_out = evaluate(labels= binary_class_labels_out_as_positive, scores= anomaly_score, directory=path, metric='auprc')
+
+    fpr, tpr, _ = roc_curve(binary_class_labels_in_as_positive, anomaly_score)
+    # TODO find tpr =95 then modified
+    # f1_score = evaluate(labels= label, scores= anomaly_score, directory=path, metric='f1_score')
+
+
+
 def main(flag):
     batch_size = 256
+    isize = 32
     if flag == 1:
         ##train 
         trainset = 'Cifar10'
-        trainset = load(trainset,batch_size,flag)
+        trainset = load(trainset,batch_size,flag,isize)
         length = len(trainset)
         print("Train set batch number:", length)
-        # train(trainset,batch_size)
+        train(trainset,batch_size)
     else:
-        # testset :Imagenet ,Imagenet_resize,LSUN,LSUN_resize，iSUN，Gaussian，Uniform
+        # testset :Imagenet ,Imagenet_resize,LSUN,LSUN_resize，iSUN
         testsetout = 'Imagenet'
-        testsetout = load(testsetout,batch_size,flag)
+        testsetout = load(testsetout,batch_size,flag,isize)
         length = len(testsetout)
         print("Test out set batch number:", length)
+        
+        # Gaussian，Uniform
+        # if testsetout in ('Gaussian','Uniform')
+        #     testsetout = load(testsetout,batch_size,flag,isize)
+        #     length = len(testsetout)
+        # print("Test out set batch number:", length)
 
         testsetin = 'Cifar10'
-        testsetin = load(testsetin,batch_size,flag)
+        testsetin = load(testsetin,batch_size,flag,isize)
         length = len(testsetin)
         print("Test in set batch number:", length)
         test(testsetin,testsetout,batch_size)
 
+        
+
 if __name__ == '__main__':
     # 1 train 0 test
-    main(0)
+    main(1)
 

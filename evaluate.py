@@ -26,23 +26,23 @@ args = parser.parse_args()
 # rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
 # rc('text', usetex=True)
 
-def evaluate(labels, scores, directory, epoch, inlier_class,metric='roc'):
+def evaluate(labels, scores, directory,metric='roc'):
     if metric == 'roc':
         # print(directory)
-        return roc(labels, scores, directory, epoch, inlier_class, plot=True )
+        return roc(labels, scores, directory, plot=True )
     elif metric == 'auprc':
-        return auprc(labels, scores, directory, epoch, inlier_class, plot=True)
+        return auprc(labels, scores, directory,plot=True)
     elif metric == 'f1_score':
-        return f1(labels, scores, directory, epoch, inlier_class, plot=True)
+        return f1(labels, scores, directory, plot=True)
     elif metric == 'recall':
-        return recall(labels, scores, directory, epoch, inlier_class, plot=True)
+        return recall(labels, scores, directory,plot=True)
     elif metric == 'precision':
-        return precision(labels, scores, directory, epoch, inlier_class, plot=True)
+        return precision(labels, scores, directory, plot=True)
     else:
         raise NotImplementedError("Check the evaluation metric.")
 
 ##
-def roc(labels, scores, directory, epoch, inlier_class, plot=True):
+def roc(labels, scores, directory, plot=True):
     """Compute ROC curve and ROC area for each class"""
     fpr = dict()
     tpr = dict()
@@ -72,7 +72,7 @@ def roc(labels, scores, directory, epoch, inlier_class, plot=True):
     #    plt.close()
     return roc_auc_score(labels, scores)
 
-def auprc(labels, scores, directory,  epoch, inlier_class, plot=True):
+def auprc(labels, scores, directory, plot=True):
 
     ap = average_precision_score(labels, scores)
     return ap
@@ -100,7 +100,7 @@ def auprc(labels, scores, directory,  epoch, inlier_class, plot=True):
 
     #return prc_auc
 
-def f1(labels, scores, directory,  epoch, inlier_class, plot=False):
+def f1(labels, scores, directory, plot=False):
 
     # ap = average_precision_score(labels, scores)
     # return ap
@@ -122,7 +122,7 @@ def f1(labels, scores, directory,  epoch, inlier_class, plot=False):
     # print(f1)
     return f1
 
-def recall(labels, scores, directory,  epoch, inlier_class, plot=False):
+def recall(labels, scores, directory,plot=False):
 
     # ap = average_precision_score(labels, scores)
     # return ap
@@ -139,7 +139,7 @@ def recall(labels, scores, directory,  epoch, inlier_class, plot=False):
     # print(recall)
     return recall
 
-def precision(labels, scores, directory,  epoch, inlier_class, plot=False):
+def precision(labels, scores, directory,plot=False):
 
     # ap = average_precision_score(labels, scores)
     # return ap
@@ -155,18 +155,3 @@ def precision(labels, scores, directory,  epoch, inlier_class, plot=False):
     precision = precision_score(labels, scores)
     # print(precision)
     return precision
-
-def l2_loss(input, target, size_average=True):
-    """ L2 Loss without reduce flag.
-
-    Args:
-        input (FloatTensor): Input tensor
-        target (FloatTensor): Output tensor
-
-    Returns:
-        [FloatTensor]: L2 distance between input and output
-    """
-    if size_average:
-        return torch.mean(torch.pow((input-target), 2))
-    else:
-        return torch.pow((input-target), 2)
