@@ -49,7 +49,7 @@ class Discriminator(nn.Module):
             # nn.BatchNorm2d(512),
             # nn.LeakyReLU(0.2, inplace = True),
             nn.Conv2d(256, 1, 4, 1, 0, bias = False),
-            nn.Sigmoid()
+            # nn.Sigmoid()
         )
 
     def weight_init(self, mean, std):
@@ -57,8 +57,9 @@ class Discriminator(nn.Module):
             normal_init(self._modules[m], mean, std)
 
     def forward(self, input):
-        output = self.main(input)
-        return output.view(-1)
+        logits = self.main(input)
+        prob = torch.tanh(logits)
+        return logits, prob
 
 class PDense(nn.Module):
     # initializers
