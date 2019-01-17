@@ -43,12 +43,26 @@ lr = 0.002
 ### fashion MNIST:
 the same as MNIST
 **partition_mnist_for_one_class.py**
+
 **train_AAE_fashion-mnist.py**
+
 **novelty_detector_fashion-mnist.py**
+
 **net_mnist**
+control different proportion
 
 ###caltech:
+
 use **OC256.py** to load data
-train: **train_AAE_Caltech.py**  n_class controls inlier {1,3,5} lr:{2e-4,1e-4,4.5e-4}
+
+train: **train_AAE_Caltech.py**  
+
+n_class controls random choose some classed from dataset inlier {1,3,5} ,outlier proportion 50%
+
+lr:{2e-4,4.5e-4,1e-4,}
+
 test: **novelty_detector_Caltech**
-net: **net_cifar**   
+
+net: **net_cifar**  
+
+###cifar:

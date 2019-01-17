@@ -362,15 +362,20 @@ def test(testsetin,testsetout,batch_size,percentage):
     batch_size = batch_size
     z_size = 100
     test_epoch = 25
+
     best_roc_auc = 0
-    best_prc_auc = 0
-    best_f1_score = 0
+    best_prc_auc_in = 0
+    best_prc_auc_out = 0
+    best_detection_error = 0
+    best_FPR = 0
+
     print("start testing")
     print("outlier percentage: "+ str(percentage))
     #####deal with length and percentages
     inliner_count = len(testsetin)
+    # print(inliner_count)
     outlier_count = inliner_count * percentage // (100 - percentage)
-    
+    # print(outlier_count)
     for j in range(0,test_epoch):
         epoch = j
         
@@ -402,11 +407,15 @@ def test(testsetin,testsetout,batch_size,percentage):
         
         y_real_z = torch.ones(batch_size)
         y_fake_z = torch.zeros(batch_size)
-        # model_dir = os.path.join('Model', 'Cifar')
-        # G.load_state_dict(torch.load(model_dir+'/Gmodel_epoch{}.pkl'.format(str(epoch))))
-        # E.load_state_dict(torch.load(model_dir+'/Emodel_epoch{}.pkl'.format(str(epoch))))
-        # D.load_state_dict(torch.load(model_dir+'/Dmodel_epoch{}.pkl'.format(str(epoch))))
-        # ZD.load_state_dict(torch.load(model_dir+'/ZDmodel_epoch{}.pkl'.format(str(epoch))))
+        model_dir = os.path.join('Model', 'Cifar')
+
+        G.load_state_dict(torch.load(model_dir+'/Gmodel_epoch{}.pkl'.format(str(epoch))))
+        E.load_state_dict(torch.load(model_dir+'/Emodel_epoch{}.pkl'.format(str(epoch))))
+        D.load_state_dict(torch.load(model_dir+'/Dmodel_epoch{}.pkl'.format(str(epoch))))
+        ZD.load_state_dict(torch.load(model_dir+'/ZDmodel_epoch{}.pkl'.format(str(epoch))))
+        P.load_state_dict(torch.load(model_dir+'/Pmodel_epoch{}.pkl'.format(str(epoch))))
+        C.load_state_dict(torch.load(model_dir+'/Cmodel_epoch{}.pkl'.format(str(epoch))))
+
 
         directory = 'Test/Cifar/{}'.format(str(testsetout))
         if not os.path.exists(directory):
@@ -416,6 +425,7 @@ def test(testsetin,testsetout,batch_size,percentage):
         label = []
         
         labelin = torch.ones(inliner_count*batch_size)
+        print("inlier number:" + str(len(labelin)))
         for it,data in enumerate(testsetin):
             x, labels = data
             x = Variable(x)
@@ -425,22 +435,25 @@ def test(testsetin,testsetout,batch_size,percentage):
             _, D_score = P(D_score)
             D_result = D_score.squeeze().detach().cpu().numpy()
             X_score.append(D_result)
-        
+            
+        # print(len(X_score))
         # length2 = len(testsetout) // batch_size
         labelout = torch.zeros(outlier_count*batch_size)
+        print("outlier number:" + str(len(labelout)))
         for it,data in enumerate(testsetout):
-            if it < outlier_count*batch_size:
-                x = data
+            if it < outlier_count:
+                x,labels = data
                 x = Variable(x)
+                x = x.cuda()
                 D_score, _ = D(x)
                 D_score = D_score.reshape((batch_size, 1))
                 _, D_score = P(D_score)
-                # D_real = D_real.reshape((batch_size, 1))
-                # _, P_real = P(D_real)
                 D_result = D_score.squeeze().detach().cpu().numpy()
                 X_score.append(D_result)
-
-        label = torch.cat((labelin,labelout),0)
+            else:
+                break
+        label = torch.cat((labelin,labelout),0).int()
+        # print(label)
         length = (inliner_count + outlier_count) * batch_size
         X_score = np.array(X_score).reshape(length, 2)
         anomaly_score = X_score
@@ -450,17 +463,24 @@ def test(testsetin,testsetout,batch_size,percentage):
             binary_class_labels_in_as_positive[i, 1-label[i]] = 1.
         binary_class_labels_out_as_positive = np.zeros((length, 2))
         for i in range(len(label)):
-            binary_class_labels_out_as_positive[i, 1-label[i]] = 1.
-        calculate(anomaly_score,label,binary_class_labels_in_as_positive,binary_class_labels_out_as_positive)
-    #     if f1_score > best_f1_score:
-    #         best_f1_score = f1_score
-    #     if roc_auc > best_roc_auc:
-    #         best_roc_auc = roc_auc
-    #     if prc_auc > best_prc_auc:
-    #         best_prc_auc = prc_auc
-    # print(best_f1_score)
+            binary_class_labels_out_as_positive[i, label[i]] = 1.
+        roc_auc,prc_auc_in,prc_auc_out,detection_error,FPR = calculate(anomaly_score,label,binary_class_labels_in_as_positive,binary_class_labels_out_as_positive)
+        
+        if roc_auc > best_roc_auc:
+            best_roc_auc = roc_auc
+        if prc_auc_in > best_prc_auc_in:
+            best_prc_auc_in = prc_auc_in
+        if prc_auc_out > best_prc_auc_out:
+            best_prc_auc_out = prc_auc_out
+        if detection_error > best_detection_error:
+            best_detection_error = detection_error
+        if FPR > best_FPR:
+            best_FPR = FPR
     # print(best_roc_auc)
-    # print(best_prc_auc)
+    # print(prc_auc_in)
+    # print(prc_auc_out)
+    # print(best_detection_error)
+    # print(best_FPR)
 
 def testNoise(testsetin,test,batch_size,percentage):
     batch_size = batch_size
@@ -551,27 +571,80 @@ def testNoise(testsetin,test,batch_size,percentage):
         calculate(anomaly_score,label,binary_class_labels_in_as_positive,binary_class_labels_out_as_positive)
 
 def calculate(anomaly_score,label,binary_class_labels_in_as_positive,binary_class_labels_out_as_positive):
-    path = "./Test/Fashion-MNIST"
-    roc_auc = evaluate(labels= binary_class_labels_in_as_positive, scores= anomaly_score, directory=path, metric='roc')
-    prc_auc_in = evaluate(labels= binary_class_labels_in_as_positive, scores= anomaly_score, directory=path, metric='auprc')
-    prc_auc_out = evaluate(labels= binary_class_labels_out_as_positive, scores= anomaly_score, directory=path, metric='auprc')
-
-    fpr, tpr, _ = roc_curve(binary_class_labels_in_as_positive, anomaly_score)
+    path = "./Test/Cifar"
+    ##############################new#########################################
+    # label 1 outlier  label 0 inlier
+    for i in label:
+        label[i] = 1-label[i]
+    print(label)
+    ############# pre 1 means detect outlier, 0 means detect inlier
+    pre2 = []
+    
+    for i in range(0,len(anomaly_score)):
+        if anomaly_score[i][0]> anomaly_score[i][1]:
+            pre2.append(0)
+        else:
+            pre2.append(1)
+    TP = 0
+    FP = 0
+    TN = 0
+    FN = 0
+    for i in range(len(label)):
+        if label[i]==1 and pre2 == 1:
+            TP = TP + 1
+        if label[i]==1 and pre2 == 0:
+            FN = FN+1
+        if label[i]==0 and pre2 == 1:
+            FP = FP+1
+        if label[i]==0 and pre2 ==0: 
+            TN = TN+1
+    TPR = TP/(TP+FN)
+    FPR = FP/(FP+FN)
+    recall = TPR 
+    precision = TP(TP+FP)
+    AUC = (TP+TN)/(TP+TN+FP+FN)
+    ##########################################################################
+    y_pre = []
+    for i in range(0,len(anomaly_score)):
+        if anomaly_score[i][0]> anomaly_score[i][1]:
+            y_pre.append(1)
+        else:
+            y_pre.append(0)
+    y_pre2 = []
+    for i in range(0,len(anomaly_score)):
+        if anomaly_score[i][0]> anomaly_score[i][1]:
+            y_pre2.append(0)
+        else:
+            y_pre2.append(1)
+    roc_auc = evaluate(labels= label, scores= y_pre, directory=path, metric='roc')
+    prc_auc_in = evaluate(labels= label, scores= y_pre, directory=path, metric='auprc')
+    prc_auc_out = evaluate(labels= label, scores= y_pre2, directory=path, metric='auprc_out')
+    print(roc_auc)
+    print(prc_auc_in)
+    print(prc_auc_out)
+    detection_error = 0
+    FPR = 0
+    fpr, tpr, _ = roc_curve(label, y_pre)
+    print(fpr)
+    print(tpr)
+    return roc_auc,prc_auc_in,prc_auc_out,detection_error,FPR
     # TODO find tpr =95 then modified
     # f1_score = evaluate(labels= label, scores= anomaly_score, directory=path, metric='f1_score')
-
+    
+    
 
 
 def main(flag):
-    batch_size = 256
+    train_batch_size = 256
+    test_batch_size = 32
     isize = 32
     if flag == 1:
         ##train 
         trainset = 'Cifar10'
-        trainset = load(trainset,batch_size,flag,isize)
+        trainset = load(trainset,train_batch_size,flag,isize)
         length = len(trainset)
         print("Train set batch number:", length)
-        train(trainset,batch_size)
+        train(trainset,train_batch_size)
     else:
         # testset :Imagenet ,Imagenet_resize,LSUN,LSUN_resize，iSUN
         # testout = ["Imagenet","Imagenet_resize","LSUN","LSUN_resize","iSUN","Gaussian","Uniform"]
@@ -581,24 +654,20 @@ def main(flag):
             for p in percentages:
                 if testdataset =="Gaussian" or testdataset=="Uniform":
                     testsetin = 'Cifar10'
-                    testsetin = load(testsetin,batch_size,flag,isize)
+                    testsetin = load(testsetin,test_batch_size,flag,isize)
                     length = len(testsetin)
                     print("Test in set batch number:", length)
-                    testNoise(testsetin,testdataset,batch_size,p)
-                    # testsetout = load(test,batch_size,flag,isize)
-                    # length = len(testsetout)
-                    # print("Test out set batch number:", length)
+                    testNoise(testsetin,testdataset,test_batch_size,p)
                 else:
                     testsetin = 'Cifar10'
-                    testsetin = load(testsetin,batch_size,flag,isize)
-                    length = len(testsetin)
-                    print("Test in set batch number:", length)
-                    
-                    testsetout = load(testdataset,batch_size,flag,isize)
-                    length = len(testsetout)
-                    print("Test out set batch number:", length)
-                    test(testsetin,testsetout,batch_size,p)
+                    testsetin = load(testsetin,test_batch_size,flag,isize)
+                    # length = len(testsetin)
+                    # print("Test in set batch number:", length)
+                    testsetout = load(testdataset,test_batch_size,flag,isize)
+                    # length = len(testsetout)
+                    # print("Test out set batch number:", length)
+                    test(testsetin,testsetout,test_batch_size,p)
 if __name__ == '__main__':
     # 1 train 0 test
-    main(1)
+    main(0)
 
