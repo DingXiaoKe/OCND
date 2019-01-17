@@ -402,11 +402,11 @@ def test(testsetin,testsetout,batch_size,percentage):
         
         y_real_z = torch.ones(batch_size)
         y_fake_z = torch.zeros(batch_size)
-        model_dir = os.path.join('Model', 'Cifar')
-        G.load_state_dict(torch.load(model_dir+'/Gmodel_epoch{}.pkl'.format(str(epoch))))
-        E.load_state_dict(torch.load(model_dir+'/Emodel_epoch{}.pkl'.format(str(epoch))))
-        D.load_state_dict(torch.load(model_dir+'/Dmodel_epoch{}.pkl'.format(str(epoch))))
-        ZD.load_state_dict(torch.load(model_dir+'/ZDmodel_epoch{}.pkl'.format(str(epoch))))
+        # model_dir = os.path.join('Model', 'Cifar')
+        # G.load_state_dict(torch.load(model_dir+'/Gmodel_epoch{}.pkl'.format(str(epoch))))
+        # E.load_state_dict(torch.load(model_dir+'/Emodel_epoch{}.pkl'.format(str(epoch))))
+        # D.load_state_dict(torch.load(model_dir+'/Dmodel_epoch{}.pkl'.format(str(epoch))))
+        # ZD.load_state_dict(torch.load(model_dir+'/ZDmodel_epoch{}.pkl'.format(str(epoch))))
 
         directory = 'Test/Cifar/{}'.format(str(testsetout))
         if not os.path.exists(directory):
