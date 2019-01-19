@@ -181,11 +181,22 @@ def test(p):
             
             for it in range(length):
                 x = Variable(extract_batch(mnist_test_x, it, batch_size).view(-1, 1, 32, 32))
-                D_score, _ = D(x)
-                D_score = D_score.reshape((batch_size, 1))
-                _, D_score = P(D_score)
-                D_result = D_score.squeeze().detach().cpu().numpy()
-                X_score.append(D_result)
+                ###########D(x)
+                # D_score, _ = D(x)
+                # D_score = D_score.reshape((batch_size, 1))
+                # _, D_score = P(D_score)
+                # D_result = D_score.squeeze().detach().cpu().numpy()
+                # X_score.append(D_result)
+                #############D(R(X))
+                z = E(x)
+                x_fake = G(z).detach()
+                D_fake, _ = D(x_fake)
+                D_fake = D_fake.reshape((batch_size, 1))
+                _, D_fake = P(D_fake)
+                D_fake = D_fake.squeeze().detach().cpu().numpy()
+                X_score.append(D_fake)
+
+
             X_score = np.array(X_score).reshape(length*batch_size, 2)
             anomaly_score = X_score
             

@@ -32,8 +32,6 @@ def evaluate(labels, scores, directory,metric='roc'):
         return roc(labels, scores, directory, plot=True )
     elif metric == 'auprc':
         return auprc(labels, scores, directory,plot=True)
-    elif metric == 'auprc_out':
-        return auprc_out(labels, scores, directory,plot=True)
     elif metric == 'f1_score':
         return f1(labels, scores, directory, plot=True)
     elif metric == 'recall':
@@ -57,11 +55,6 @@ def roc(labels, scores, directory, plot=True):
 def auprc(labels, scores, directory, plot=True):
 
     ap = average_precision_score(labels, scores)
-    return ap
-
-def auprc_out(labels, scores, directory, plot=True):
-
-    ap = average_precision_score(labels, scores,pos_label=0)
     return ap
 def f1(labels, scores, directory, plot=False):
     threshold = args.threshold

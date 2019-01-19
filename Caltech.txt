@@ -1,5 +1,1 @@
-071.fire-hydrant
-206.sushi
-051.cowboy-hat
-026.cake
-164.porcupine
+257.clutter
