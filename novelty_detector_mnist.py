@@ -75,7 +75,7 @@ def extract_batch_(data, it, batch_size):
 def test(p):
     percentage = p
     print("outlier percentage: "+ str(percentage) )
-    for i in range(0,10):
+    for i in range(1,2):
         #######################################################
         inlier_class = i
         print('inlier_class is '+str(inlier_class))
@@ -89,14 +89,14 @@ def test(p):
         #######################################################
         # print("start loading test data")
         ## load inlier
-        with open('data/mnist_{}_{}.pkl'.format(str(inlier_class),'train'), 'rb') as pkl:
+        with open('data/mnist/mnist_{}_{}.pkl'.format(str(inlier_class),'train'), 'rb') as pkl:
             mnist_train = pickle.load(pkl)
         mnist_train = [x for x in mnist_train if x[0] == inlier_class ]
         # random.seed(0)
         random.shuffle(mnist_train)
 
         ##load outlier
-        with open('data/mnist_{}_{}.pkl'.format(str(inlier_class),'test'), 'rb') as pkl:
+        with open('data/mnist/mnist_{}_{}.pkl'.format(str(inlier_class),'test'), 'rb') as pkl:
             mnist_test = pickle.load(pkl)
         # random.shuffle(mnist_test)
 
@@ -132,7 +132,7 @@ def test(p):
         batch_size = 128
         mnist_train = []
         z_size = 32
-        test_epoch = 15
+        test_epoch = 20
         
         best_roc_auc = 0
         best_prc_auc = 0
@@ -182,19 +182,19 @@ def test(p):
             for it in range(length):
                 x = Variable(extract_batch(mnist_test_x, it, batch_size).view(-1, 1, 32, 32))
                 ###########D(x)
-                # D_score, _ = D(x)
-                # D_score = D_score.reshape((batch_size, 1))
-                # _, D_score = P(D_score)
-                # D_result = D_score.squeeze().detach().cpu().numpy()
-                # X_score.append(D_result)
+                D_score, _ = D(x)
+                D_score = D_score.reshape((batch_size, 1))
+                _, D_score = P(D_score)
+                D_result = D_score.squeeze().detach().cpu().numpy()
+                X_score.append(D_result)
                 #############D(R(X))
-                z = E(x)
-                x_fake = G(z).detach()
-                D_fake, _ = D(x_fake)
-                D_fake = D_fake.reshape((batch_size, 1))
-                _, D_fake = P(D_fake)
-                D_fake = D_fake.squeeze().detach().cpu().numpy()
-                X_score.append(D_fake)
+                # z = E(x)
+                # x_fake = G(z).detach()
+                # D_fake, _ = D(x_fake)
+                # D_fake = D_fake.reshape((batch_size, 1))
+                # _, D_fake = P(D_fake)
+                # D_fake = D_fake.squeeze().detach().cpu().numpy()
+                # X_score.append(D_fake)
 
 
             X_score = np.array(X_score).reshape(length*batch_size, 2)

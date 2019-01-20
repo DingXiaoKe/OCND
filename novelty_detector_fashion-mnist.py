@@ -76,7 +76,7 @@ def extract_batch_(data, it, batch_size):
 def test(p):
     percentage = p
     print("outlier percentage: "+ str(percentage) )
-    for i in range(0,10):
+    for i in range(7,8):
         #######################################################
         inlier_class = i
         print('inlier_class is '+str(inlier_class))
@@ -126,7 +126,7 @@ def test(p):
         batch_size = 128
         mnist_train = []
         z_size = 32
-        test_epoch = 15
+        test_epoch = 30
         
         best_roc_auc = 0
         best_prc_auc = 0
@@ -175,19 +175,19 @@ def test(p):
             for it in range(length):
                 x = Variable(extract_batch(mnist_test_x, it, batch_size).view(-1, 1, 32, 32))
                 ###########D(x)
-                # D_score, _ = D(x)
-                # D_score = D_score.reshape((batch_size, 1))
-                # _, D_score = P(D_score)
-                # D_result = D_score.squeeze().detach().cpu().numpy()
-                # X_score.append(D_result)
-                 #############D(R(X))
-                z = E(x)
-                x_fake = G(z).detach()
-                D_fake, _ = D(x_fake)
-                D_fake = D_fake.reshape((batch_size, 1))
-                _, D_fake = P(D_fake)
-                D_fake = D_fake.squeeze().detach().cpu().numpy()
-                X_score.append(D_fake)
+                D_score, _ = D(x)
+                D_score = D_score.reshape((batch_size, 1))
+                _, D_score = P(D_score)
+                D_result = D_score.squeeze().detach().cpu().numpy()
+                X_score.append(D_result)
+                ############D(R(X))
+                # z = E(x)
+                # x_fake = G(z).detach()
+                # D_fake, _ = D(x_fake)
+                # D_fake = D_fake.reshape((batch_size, 1))
+                # _, D_fake = P(D_fake)
+                # D_fake = D_fake.squeeze().detach().cpu().numpy()
+                # X_score.append(D_fake)
             # print("start calculating")
             X_score = np.array(X_score).reshape(length*batch_size, 2)
             #print(X_score)
@@ -199,9 +199,9 @@ def test(p):
             for i in range(len(labels)):
                 binary_class_labels[i, 1-labels[i]] = 1.
             path = "./Test/Fashion-MNIST/{}/".format(str(inlier_class))
-            roc_auc = evaluate(labels= binary_class_labels, scores= anomaly_score, directory=path, epoch = epoch, inlier_class = inlier_class,metric='roc')
-            prc_auc = evaluate(labels= binary_class_labels, scores= anomaly_score, directory=path, epoch = epoch, inlier_class = inlier_class,metric='auprc')
-            f1_score = evaluate(labels= labels, scores= anomaly_score, directory=path, epoch = epoch, inlier_class = inlier_class , metric='f1_score')
+            roc_auc = evaluate(labels= binary_class_labels, scores= anomaly_score, directory=path, metric='roc')
+            prc_auc = evaluate(labels= binary_class_labels, scores= anomaly_score, directory=path, metric='auprc')
+            f1_score = evaluate(labels= labels, scores= anomaly_score, directory=path, metric='f1_score')
             #[:, 1]
             #recall = evaluate(labels= labels, scores= anomaly_score, directory=path, epoch = epoch, inlier_class = inlier_class , metric='recall')
             #precision = evaluate(labels= labels, scores= anomaly_score, directory=path, epoch = epoch, inlier_class = inlier_class , metric='precision')

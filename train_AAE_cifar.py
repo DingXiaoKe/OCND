@@ -29,7 +29,7 @@ import torchvision
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 from torchvision.datasets import MNIST
-from torchvision.datasets import CIFAR10
+from torchvision.datasets import CIFAR10,CIFAR100
 from torchvision.datasets import ImageFolder
 import torchvision.transforms as transforms
 from sklearn.metrics import roc_auc_score
@@ -128,6 +128,18 @@ def load(dataset,batch_size,flag,isize):
         dataloader = torch.utils.data.DataLoader(dataset,batch_size=batch_size,shuffle=True,num_workers=8,drop_last=True)
         # print(len(trainloader))
         return dataloader
+    if dataset == "Cifar100" and flag == 1:
+        transform = transforms.Compose(
+            [
+                transforms.Scale(isize),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            ]
+        )
+        dataset = CIFAR100(root='./data/cifar100', train=True, download=True, transform=transform)
+        dataloader = torch.utils.data.DataLoader(dataset,batch_size=batch_size,shuffle=True,num_workers=8,drop_last=True)
+        # print(len(trainloader))
+        return dataloader
 
     if dataset == "Cifar10" and flag == 0:
         transform = transforms.Compose(
@@ -140,6 +152,19 @@ def load(dataset,batch_size,flag,isize):
         dataset = CIFAR10(root='./data/cifar10', train=False, download=True, transform=transform)
         dataloader = torch.utils.data.DataLoader(dataset,batch_size=batch_size,shuffle=True,num_workers=8,drop_last=True)
         return dataloader
+    
+    if dataset == "Cifar100" and flag == 0:
+        transform = transforms.Compose(
+            [
+                transforms.Scale(isize),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+            ]
+        )
+        dataset = CIFAR100(root='./data/cifar100', train=False, download=True, transform=transform)
+        dataloader = torch.utils.data.DataLoader(dataset,batch_size=batch_size,shuffle=True,num_workers=8,drop_last=True)
+        return dataloader
+
     if dataset != "Uniform" and dataset != "Gaussian":
         transform = transforms.Compose(
             [
@@ -156,10 +181,10 @@ def train(trainset,batch_size):
     zsize = 100
     cutout = True # whether cover the img
     n_holes = 1 # number of holes to cut out from image
-    length = 32 # length of the holes
+    length = 16 # length of the holes
     TINY = 1e-15
     train_epoch = 25
-    isize = 64
+    lr = 2e-3
     train_len = len(trainset)
     G = Generator(zsize, channels=3)
     setup(G)
@@ -185,7 +210,7 @@ def train(trainset,batch_size):
     setup(ZD)
     ZD.apply(weights_init)
 
-    lr = 0.002
+    
 
     G_optimizer = optim.Adam(G.parameters(), lr=lr, betas=(0.5, 0.9))
     D_optimizer = optim.Adam(list(D.parameters())\
@@ -203,8 +228,6 @@ def train(trainset,batch_size):
     y_real_z = torch.ones(batch_size)
     y_fake_z = torch.zeros(batch_size)
 
-    sample = torch.randn(64, zsize).view(-1, zsize, 1, 1)
-
     for epoch in range(train_epoch):
         G.train()
         D.train()
@@ -217,19 +240,19 @@ def train(trainset,batch_size):
         for it,data in enumerate(trainset):
             #############################################
             x, labels = data
-            x, labels = Cutout(n_holes, 16, np.asarray(x), np.asarray(labels))
+            x, labels = Cutout(n_holes, length, np.asarray(x), np.asarray(labels))
             x = Variable(torch.from_numpy(x))
             x = x.cuda()
 
             binary_class_y_real = torch.zeros(batch_size, 2)
             for i in range(batch_size):
-                binary_class_y_real[i][0] = 0.8
-                binary_class_y_real[i][1] = 0.2
+                binary_class_y_real[i][0] = 0.99
+                binary_class_y_real[i][1] = 0.01
             
             binary_class_y_fake = torch.zeros(batch_size, 2)
             for i in range(batch_size):
-                binary_class_y_fake[i][0] = 0.2
-                binary_class_y_fake[i][1] = 0.8
+                binary_class_y_fake[i][0] = 0.101
+                binary_class_y_fake[i][1] = 0.99
 
             #############################################
 
@@ -336,7 +359,7 @@ def train(trainset,batch_size):
             x_d = G(z)
             
 
-            if it % 30 ==0:
+            if it % 80 ==0:
                 directory = 'Train/Cifar'
                 if not os.path.exists(directory):
                     os.makedirs(directory)
@@ -357,263 +380,6 @@ def train(trainset,batch_size):
         torch.save(P.state_dict(), '{}/Pmodel_epoch{}.pkl'.format(model_dir,str(epoch)))
         torch.save(C.state_dict(), '{}/Cmodel_epoch{}.pkl'.format(model_dir,str(epoch)))
     return None
-
-def test(testdataset,testsetin,testsetout,batch_size):
-    batch_size = batch_size
-    z_size = 100
-    test_epoch = 25
-
-    best_roc_auc = 0
-    best_prc_auc_in = 0
-    best_prc_auc_out = 0
-    best_TPR_in = 0
-    best_TPR_out = 0 
-    best_FPR_in = 0
-    best_FPR_out = 0
-
-    print("start testing")
-    print("outlier dataset is: "+ str(testdataset))
-    #####deal with length and percentages
-    inliner_count = len(testsetin)
-    outlier_count = len(testsetout)
-    print("inlier number:" + str(inliner_count*batch_size))
-    print("outlier number:" + str(outlier_count*batch_size))
-    # print(outlier_count)
-    for j in range(0,test_epoch):
-        epoch = j
-        
-        G = Generator(z_size)
-        E = Encoder(z_size)
-        D = Discriminator()
-        ZD = ZDiscriminator(z_size, batch_size)
-        P = PDense(1, 128, 2)
-        C = Dense(1, 128, 1, batch_size)
-
-        setup(E)
-        setup(G)
-        setup(D)
-        setup(ZD)
-        setup(P)
-        setup(C)
-        
-        G.eval()
-        E.eval()
-        D.eval()
-        ZD.eval()
-        P.eval()
-        C.eval()
-        
-        BCE_loss = nn.BCELoss()
-        MSE_loss = nn.MSELoss()
-        y_real_ = torch.ones(batch_size)
-        y_fake_ = torch.zeros(batch_size)
-        
-        y_real_z = torch.ones(batch_size)
-        y_fake_z = torch.zeros(batch_size)
-        model_dir = os.path.join('Model', 'Cifar')
-
-        G.load_state_dict(torch.load(model_dir+'/Gmodel_epoch{}.pkl'.format(str(epoch))))
-        E.load_state_dict(torch.load(model_dir+'/Emodel_epoch{}.pkl'.format(str(epoch))))
-        D.load_state_dict(torch.load(model_dir+'/Dmodel_epoch{}.pkl'.format(str(epoch))))
-        ZD.load_state_dict(torch.load(model_dir+'/ZDmodel_epoch{}.pkl'.format(str(epoch))))
-        P.load_state_dict(torch.load(model_dir+'/Pmodel_epoch{}.pkl'.format(str(epoch))))
-        C.load_state_dict(torch.load(model_dir+'/Cmodel_epoch{}.pkl'.format(str(epoch))))
-
-
-        directory = 'Test/Cifar'
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        
-        X_score = []
-        label = []
-        
-        labelin = torch.ones(inliner_count*batch_size)
-        # print(labelin)
-        for it,data in enumerate(testsetin):
-            x, labels = data
-            x = Variable(x)
-            x = x.cuda()
-            D_score, _ = D(x)
-            D_score = D_score.reshape((batch_size, 1))
-            _, D_score = P(D_score)
-            D_result = D_score.squeeze().detach().cpu().numpy()
-            X_score.append(D_result)
-            
-        # print(len(X_score))
-        # length2 = len(testsetout) // batch_size
-        labelout = torch.zeros(outlier_count*batch_size)
-        # print(labelout)
-        for it,data in enumerate(testsetout):
-            if it < outlier_count:
-                x,labels = data
-                x = Variable(x)
-                x = x.cuda()
-                D_score, _ = D(x)
-                D_score = D_score.reshape((batch_size, 1))
-                _, D_score = P(D_score)
-                D_result = D_score.squeeze().detach().cpu().numpy()
-                X_score.append(D_result)
-            else:
-                break
-        label = torch.cat((labelin,labelout),0).int()
-
-        # print(label)
-        length = (inliner_count + outlier_count) * batch_size
-        X_score = np.array(X_score).reshape(length, 2)
-        anomaly_score = X_score
-
-        roc_auc,prc_auc_in,prc_auc_out,TPR_in,FPR_in,TPR_out,FPR_out = calculate(anomaly_score,label)
-        print(epoch)
-        print(roc_auc,prc_auc_in,prc_auc_out,TPR_in,FPR_in,TPR_out,FPR_out)
-        # path = "./Test/Cifar/'result_{}.txt'"
-        filename= "Test/Cifar/result_{}.txt".format(str(testdataset))
-        #f1_file_name = os.path.join(path, 'result_{}.txt'.format(str(testdataset)))
-        with open(filename, 'a+') as opt_file:
-            opt_file.write('---epoch----\n')
-            opt_file.write('%s' %(str(epoch))+'\n')
-            opt_file.write('---roc_auc----\n')
-            opt_file.write('%s' %(str(roc_auc))+'\n')
-            opt_file.write('---prc_auc_in----\n')
-            opt_file.write('%s' %(str(prc_auc_in))+'\n')
-            opt_file.write('---prc_auc_out----\n')
-            opt_file.write('%s' %(str(prc_auc_out))+'\n')
-            opt_file.write('---TPR_in----\n')
-            opt_file.write('%s' %(str(TPR_in))+'\n')
-            opt_file.write('---FPR_in----\n')
-            opt_file.write('%s' %(str(FPR_in))+'\n')
-            opt_file.write('---TPR_out----\n')
-            opt_file.write('%s' %(str(TPR_out))+'\n')
-            opt_file.write('---FPR_out----\n')
-            opt_file.write('%s' %(str(FPR_out))+'\n')
-            opt_file.write('----------\n')
-
-    
-
-def testNoise(testsetin,test,batch_size):
-    batch_size = batch_size
-    z_size = 100
-    test_epoch = 25
-
-    print("start testing")
-    #####deal with length and percentages
-    inliner_count = len(testsetin)
-    outlier_count = inliner_count
-    print("outlier dataset is: "+ str(test))
-    print("inlier number:" + str(inliner_count*batch_size))
-    print("outlier number:" + str(outlier_count*batch_size))
-    for j in range(0,test_epoch):
-        epoch = j
-        
-        G = Generator(z_size)
-        E = Encoder(z_size)
-        D = Discriminator()
-        ZD = ZDiscriminator(z_size, batch_size)
-        P = PDense(1, 128, 2)
-        C = Dense(1, 128, 1, batch_size)
-
-        setup(E)
-        setup(G)
-        setup(D)
-        setup(ZD)
-        setup(P)
-        setup(C)
-        
-        G.eval()
-        E.eval()
-        D.eval()
-        ZD.eval()
-        P.eval()
-        C.eval()
-        
-        BCE_loss = nn.BCELoss()
-        MSE_loss = nn.MSELoss()
-        y_real_ = torch.ones(batch_size)
-        y_fake_ = torch.zeros(batch_size)
-        
-        y_real_z = torch.ones(batch_size)
-        y_fake_z = torch.zeros(batch_size)
-        model_dir = os.path.join('Model', 'Cifar')
-        G.load_state_dict(torch.load(model_dir+'/Gmodel_epoch{}.pkl'.format(str(epoch))))
-        E.load_state_dict(torch.load(model_dir+'/Emodel_epoch{}.pkl'.format(str(epoch))))
-        D.load_state_dict(torch.load(model_dir+'/Dmodel_epoch{}.pkl'.format(str(epoch))))
-        ZD.load_state_dict(torch.load(model_dir+'/ZDmodel_epoch{}.pkl'.format(str(epoch))))
-        P.load_state_dict(torch.load(model_dir+'/Pmodel_epoch{}.pkl'.format(str(epoch))))
-        C.load_state_dict(torch.load(model_dir+'/Cmodel_epoch{}.pkl'.format(str(epoch))))
-
-        directory = 'Test/Cifar'
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        
-        X_score = []
-        x_out_score = []
-        label = []
-
-        labelin = torch.ones(inliner_count*batch_size)
-        # print("inlier number:" + str(len(labelin)))
-        for it,data in enumerate(testsetin):
-            x, labels = data
-            x = Variable(x)
-            x = x.cuda()
-            D_score, _ = D(x)
-            D_score = D_score.reshape((batch_size, 1))
-            _, D_score = P(D_score)
-            D_result = D_score.squeeze().detach().cpu().numpy()
-            X_score.append(D_result)
-        # X_score = np.array(X_score).reshape(-1, 2)
-
-        labelout = torch.zeros(outlier_count*batch_size)
-        # print("outlier number:" + str(len(labelout)))
-        for j in range(len(labelout)):
-            if test == "Gaussian":
-                images = torch.randn(1,3,32,32) + 0.5
-            if test == "Uniform":
-                images = torch.rand(1,3,32,32)
-            images = torch.clamp(images, 0, 1)
-            images[0][0] = (images[0][0] - 125.3/255) / (63.0/255)
-            images[0][1] = (images[0][1] - 123.0/255) / (62.1/255)
-            images[0][2] = (images[0][2] - 113.9/255) / (66.7/255)
-        
-            x = Variable(images, requires_grad = True).cuda()
-            D_score, _ = D(x)
-            D_score = D_score.reshape((1, 1))
-            _, D_score = P(D_score)
-            D_result = D_score.squeeze().detach().cpu().numpy()
-            x_out_score.append(D_result)
-
-        label = torch.cat((labelin,labelout),0).int()
-        # print(label)
-        # length = inliner_count * batch_size
-        X_score = torch.from_numpy(np.array(X_score).reshape(-1, 2))
-        x_out_score = torch.from_numpy(np.array(x_out_score).reshape(-1, 2))
-        X_score = torch.cat((X_score,x_out_score),0)
-        X_score = X_score.numpy()
-        anomaly_score = X_score
-        
-
-        roc_auc,prc_auc_in,prc_auc_out,TPR_in,FPR_in,TPR_out,FPR_out = calculate(anomaly_score,label)
-        print(epoch)
-        print(roc_auc,prc_auc_in,prc_auc_out,TPR_in,FPR_in,TPR_out,FPR_out)
-        # path = "./Test/Cifar/'result_{}.txt'"
-        filename= "Test/Cifar/result_{}.txt".format(str(test))
-        #f1_file_name = os.path.join(path, 'result_{}.txt'.format(str(testdataset)))
-        with open(filename, 'a+') as opt_file:
-            opt_file.write('---epoch----\n')
-            opt_file.write('%s' %(str(epoch))+'\n')
-            opt_file.write('---roc_auc----\n')
-            opt_file.write('%s' %(str(roc_auc))+'\n')
-            opt_file.write('---prc_auc_in----\n')
-            opt_file.write('%s' %(str(prc_auc_in))+'\n')
-            opt_file.write('---prc_auc_out----\n')
-            opt_file.write('%s' %(str(prc_auc_out))+'\n')
-            opt_file.write('---TPR_in----\n')
-            opt_file.write('%s' %(str(TPR_in))+'\n')
-            opt_file.write('---FPR_in----\n')
-            opt_file.write('%s' %(str(FPR_in))+'\n')
-            opt_file.write('---TPR_out----\n')
-            opt_file.write('%s' %(str(TPR_out))+'\n')
-            opt_file.write('---FPR_out----\n')
-            opt_file.write('%s' %(str(FPR_out))+'\n')
-            opt_file.write('----------\n')
 
 def calculate(anomaly_score,label):
     path = "./Test/Cifar"
@@ -679,30 +445,30 @@ def main(flag):
     isize = 32
     if flag == 1:
         ##train 
-        trainset = 'Cifar10'
+        trainset = 'Cifar100'
+        # trainset = 'Cifar10'
         trainset = load(trainset,train_batch_size,flag,isize)
         length = len(trainset)
         print("Train set batch number:", length)
         train(trainset,train_batch_size)
-    else:
-        # testset :Imagenet ,Imagenet_resize,LSUN,LSUN_resize，iSUN
-        testout = ["Imagenet","Imagenet_resize","LSUN","LSUN_resize","iSUN","Gaussian","Uniform"]
-        # testout = ["Gaussian"]
-        # percentages = [1000, , 30, 40, 50]
-        for testdataset in testout:
-            # for p in percentages:
-            if testdataset =="Gaussian" or testdataset=="Uniform":
-                testsetin = 'Cifar10'
-                testsetinloader = load(testsetin,test_batch_size,flag,isize)
-                # length = len(testsetinloader)
-                # print("Test in set batch number:", length)
-                testNoise(testsetinloader,testdataset,test_batch_size)
-            else:
-                testsetin = 'Cifar10'
-                testsetin = load(testsetin,test_batch_size,flag,isize)
-                testsetout = load(testdataset,test_batch_size,flag,isize)
-                test(testdataset,testsetin,testsetout,test_batch_size)
+    # else:
+    #     # testset :Imagenet ,Imagenet_resize,LSUN,LSUN_resize，iSUN
+    #     # testout = ["Imagenet","Imagenet_resize","LSUN","LSUN_resize","iSUN","Gaussian","Uniform"]
+    #     # testout = ["Imagenet_resize"]
+    #     testout = ["Imagenet_resize","LSUN","LSUN_resize","iSUN","Gaussian","Uniform"]
+    #     testin = ["Cifar100","Cifar10"]
+    #     for testdataset in testout:
+            
+    #         if testdataset =="Gaussian" or testdataset=="Uniform":
+    #             testsetin = 'Cifar10'
+    #             testsetinloader = load(testsetin,test_batch_size,flag,isize)
+    #             testNoise(testsetinloader,testdataset,test_batch_size)
+    #         else:
+    #             testsetin = 'Cifar10'
+    #             testsetin = load(testsetin,test_batch_size,flag,isize)
+    #             testsetout = load(testdataset,test_batch_size,flag,isize)
+    #             test(testdataset,testsetin,testsetout,test_batch_size)
 if __name__ == '__main__':
     # 1 train 0 test
-    main(0)
+    main(1)
 

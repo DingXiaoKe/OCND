@@ -122,7 +122,8 @@ def main():
     n_holes = 1 # number of holes to cut out from image
     length = 32 # length of the holes
     TINY = 1e-15
-    for i in range(0,10):
+    lr = 2e-4
+    for i in range(1,2):
         anomaly_class = i
         print('start loading data')
 
@@ -142,7 +143,7 @@ def main():
            print("start randomly cutout")
            mnist_train_x, mnist_train_y = Cutout(n_holes, length, mnist_train_x, mnist_train_y)
         
-        train_epoch = 15
+        train_epoch = 20
 
         G = Generator(zsize)
         setup(G)
@@ -168,7 +169,7 @@ def main():
         setup(ZD)
         ZD.weight_init(mean=0, std=0.02)
 
-        lr = 0.002
+        
 
         G_optimizer = optim.Adam(G.parameters(), lr=lr, betas=(0.5, 0.9))
         D_optimizer = optim.Adam(list(D.parameters())\

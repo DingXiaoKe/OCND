@@ -1,1 +1,1 @@
-257.clutter
+data/coil-100/obj44__*
