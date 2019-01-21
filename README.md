@@ -66,3 +66,13 @@ test: **novelty_detector_Caltech**
 net: **net_cifar**  
 
 ###cifar:
+
+
+
+###coil100
+n_class 1,4,7
+1:
+lr = 2e-3 lambd = 0.1
+4:
+lr = 0.002 lambd = 0.1
+7:

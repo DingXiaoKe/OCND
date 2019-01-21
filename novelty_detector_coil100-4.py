@@ -32,7 +32,7 @@ import scipy.stats
 import os
 from sklearn.metrics import roc_auc_score
 from evaluate import evaluate
-from Coil100 import load_Coil_train_data, load_Coil_test_data
+from Coil100_4 import load_Coil_train_data, load_Coil_test_data
 
 power = 2.0
 
@@ -87,7 +87,7 @@ def test():
         #######################################################
         inliner_data = load_Coil_train_data(1, 32, load_flag=True)
         print(len(inliner_data))
-        outliner_data = load_Coil_test_data(32,int(len(inliner_data)))
+        outliner_data = load_Coil_test_data(32,int(0.25*len(inliner_data)))
         # print(outliner_data)
         print(len(outliner_data))
         print("successfully loaded")
@@ -99,7 +99,7 @@ def test():
         print("start testing")
         batch_size = 1
         z_size = 100
-        test_epoch =300
+        test_epoch = 300
         
         best_roc_auc = 0
         best_prc_auc = 0
@@ -135,7 +135,7 @@ def test():
             y_real_z = torch.ones(batch_size)
             y_fake_z = torch.zeros(batch_size)
             
-            model_dir = os.path.join('Model', 'Coil100')
+            model_dir = os.path.join('Model', 'Coil100-4')
             G.load_state_dict(torch.load(model_dir+'/Gmodel_epoch{}.pkl'.format(str(epoch))))
             E.load_state_dict(torch.load(model_dir+'/Emodel_epoch{}.pkl'.format(str(epoch))))
             D.load_state_dict(torch.load(model_dir+'/Dmodel_epoch{}.pkl'.format(str(epoch))))
@@ -143,7 +143,7 @@ def test():
             P.load_state_dict(torch.load(model_dir+'/Pmodel_epoch{}.pkl'.format(str(epoch))))
             C.load_state_dict(torch.load(model_dir+'/Cmodel_epoch{}.pkl'.format(str(epoch))))
 
-            directory = 'Test/Coil100'
+            directory = 'Test/Coil100-4'
             if not os.path.exists(directory):
                 os.makedirs(directory)
             X_score = []
@@ -176,15 +176,16 @@ def test():
             binary_class_labels = np.zeros((length*batch_size, 2))
             for i in range(len(labels)):
                 binary_class_labels[i, 1-labels[i]] = 1.
-            path = "./Test/Caltech/"
+            path = "./Test/Coil100-4/"
             roc_auc = evaluate(labels= binary_class_labels, scores= anomaly_score, directory=path, metric='roc')
             f1_score = evaluate(labels= labels, scores= anomaly_score, directory=path, metric='f1_score')
             # R_roc_auc = evaluate(labels= binary_class_labels, scores= X_R_score, directory=path, metric='roc')
             # R_f1_score = evaluate(labels= labels, scores= X_R_score, directory=path, metric='f1_score')
             print(roc_auc, f1_score)
-            if f1_score > best_f1_score and roc_auc > best_roc_auc:
+            if f1_score >= best_f1_score and roc_auc >= best_roc_auc:
               best_f1_score = f1_score
               best_roc_auc = roc_auc
+              
             # if R_f1_score > best_R_f1_score:
             #   best_R_f1_score = R_f1_score
             # if R_roc_auc > best_R_roc_auc:
@@ -195,7 +196,7 @@ def test():
         # print(best_R_f1_score)
         
         
-        path = "./Test/Coil100/"
+        path = "./Test/Coil100-4/"
         f1_file_name = os.path.join(path, 'result.txt')
         with open(f1_file_name, 'a+') as opt_file:
             opt_file.write('---best_roc_auc----\n')

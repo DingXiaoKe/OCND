@@ -3,7 +3,7 @@ import numpy as np
 from PIL import Image
 import random
 BASE_PATH = 'data/coil-100'
-RECORD_FILE = 'Coil100.txt'
+RECORD_FILE = 'Coil100-7.txt'
 
 def load_Coil_train_data(n_class, input_size, load_flag=False):
     datas = []

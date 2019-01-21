@@ -25,7 +25,7 @@ import pickle
 import time
 import random
 import os
-from Coil100 import load_Coil_train_data
+from Coil100_7 import load_Coil_train_data
 use_cuda = torch.cuda.is_available()
 
 FloatTensor = torch.FloatTensor
@@ -80,7 +80,7 @@ def Cutout(n_holes, length,train_set):
     for i,img in enumerate(train_set):
         p = random.random()
         # print(p)
-        if p > 0.1:
+        if p > 0.5:
             h = img.shape[0]
             w = img.shape[1]
             c = img.shape[2]
@@ -115,7 +115,7 @@ def Cutout(n_holes, length,train_set):
 def main():
     # new hyperparameter
     # n_class 1,4,7
-    n_class = 1
+    n_class = 7
     lambd = 0.1
     batch_size = 32
     zsize = 100
@@ -187,7 +187,7 @@ def main():
             for it,data in enumerate(next_batch(train_data, batch_size)):
                 #############################################
                 x = data
-                x, labels = Cutout(n_holes, 16, x)
+                x, labels = Cutout(n_holes, 8, x)
                 x = Variable(torch.from_numpy(x))
                 x = x.cuda()
 
@@ -307,18 +307,18 @@ def main():
             x_d = G(z)
 
             if epoch % 50 ==0:
-                directory = 'Train/Coil100'
+                directory = 'Train/Coil100-7'
                 if not os.path.exists(directory):
                     os.makedirs(directory)
                 comparison = torch.cat([x[:4], x_d[:4]])
                 save_image(comparison,
-                            'Train/Coil100/reconstruction_'+ str(epoch)+'_'+ str(it) + '.png', nrow=4)
+                            'Train/Coil100-7/reconstruction_'+ str(epoch)+'_'+ str(it) + '.png', nrow=4)
                 iter_end_time = time.time()
                 per_iter_ptime = iter_end_time - epoch_start_time
                 print('[%d/%d]- ptime: %.2f, Gloss: %.3f, Dloss: %.3f, ZDloss: %.3f, GEloss: %.3f, Eloss: %.3f' % ((epoch + 1), train_epoch, per_iter_ptime, G_train_loss, D_train_loss, ZD_train_loss, Recon_loss, E_loss))
                 # print('[%d/%d]- ptime: %.2f, Gloss: %.3f, Dloss: %.3f, ZDloss: %.3f, Eloss: %.3f' % ((epoch + 1), train_epoch, per_iter_ptime, G_train_loss, D_train_loss, ZD_train_loss, E_loss))
             #print("Training finish!... save training results")
-            model_dir = os.path.join('Model', 'Coil100')
+            model_dir = os.path.join('Model', 'Coil100-7')
             if not os.path.isdir(model_dir):
                 os.makedirs(model_dir)
             torch.save(G.state_dict(), '{}/Gmodel_epoch{}.pkl'.format(model_dir,str(epoch)))
