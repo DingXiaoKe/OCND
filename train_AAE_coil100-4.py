@@ -126,7 +126,7 @@ def main():
     isize = 32
     workers = 8
     train_epoch = 300
-    lr = 0.0009
+    lr = 0.001
     for i in range(1):
         print('start loading data')
         train_data = load_Coil_train_data(n_class, isize)

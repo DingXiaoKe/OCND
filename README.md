@@ -57,7 +57,7 @@ use **OC256.py** to load data
 
 train: **train_AAE_Caltech.py**  
 
-n_class controls random choose some classed from dataset inlier {1,3,5} ,outlier proportion 50%
+n_class controls random choose some classed from dataset inlier {1,3,5} ,outlier proportion 50%, 25%, 15%
 
 lr:{2e-4,4.5e-4,1e-4,}
 
@@ -76,3 +76,4 @@ lr = 2e-3 lambd = 0.1
 4:
 lr = 0.002 lambd = 0.1
 7:
+lr = 0.001 lambd = 0.01

@@ -116,7 +116,7 @@ def main():
     # new hyperparameter
     # n_class 1,4,7
     n_class = 7
-    lambd = 0.1
+    lambd = 0.01
     batch_size = 32
     zsize = 100
     cutout = True # whether cover the img
@@ -125,8 +125,8 @@ def main():
     TINY = 1e-15
     isize = 32
     workers = 8
-    train_epoch =  300
-    lr = 0.002
+    train_epoch =  200
+    lr = 0.001
     for i in range(1):
         print('start loading data')
         train_data = load_Coil_train_data(n_class, isize)
@@ -187,7 +187,7 @@ def main():
             for it,data in enumerate(next_batch(train_data, batch_size)):
                 #############################################
                 x = data
-                x, labels = Cutout(n_holes, 8, x)
+                x, labels = Cutout(n_holes, 16, x)
                 x = Variable(torch.from_numpy(x))
                 x = x.cuda()
 

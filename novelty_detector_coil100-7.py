@@ -99,7 +99,7 @@ def test():
         print("start testing")
         batch_size = 1
         z_size = 100
-        test_epoch = 300
+        test_epoch = 200
         
         best_roc_auc = 0
         best_prc_auc = 0
