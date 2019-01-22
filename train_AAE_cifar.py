@@ -82,7 +82,7 @@ def Cutout(n_holes, length,train_set,train_label):
     for i,img in enumerate(train_set):
         p = random.random()
         # print(p)
-        if p > 0.6:
+        if p > 0.5:
             h = img.shape[0]
             w = img.shape[1]
             c = img.shape[2]
@@ -177,14 +177,14 @@ def load(dataset,batch_size,flag,isize):
         return dataloader
 
 def train(trainset,batch_size):
-    lambd = 0.5
+    lambd = 0.1
     zsize = 100
     cutout = True # whether cover the img
     n_holes = 1 # number of holes to cut out from image
     length = 16 # length of the holes
     TINY = 1e-15
     train_epoch = 25
-    lr = 2e-3
+    lr = 0.001
     train_len = len(trainset)
     G = Generator(zsize, channels=3)
     setup(G)
@@ -309,8 +309,8 @@ def train(trainset,batch_size):
                 eps = 1e-12
                 P_real = torch.clamp(P_real, 0. + eps, 1. - eps)
                 C_real = torch.clamp(C_real, 0. + eps, 1. - eps)
-                # binary_class_y_real = torch.zeros(batch_size, 2)
-                # binary_class_y_real[:, 1] = 1.
+                b = Variable(torch.bernoulli(torch.Tensor(C_real.size()).uniform_(0, 1))).cuda()
+                C_real = C_real * b + (1 - b)
                 P_real_prim = P_real * C_real + (1. - C_real) * binary_class_y_real
                 D_real_loss = torch.sum(- torch.log(P_real_prim + TINY) * binary_class_y_real, 1).reshape((batch_size, 1))\
                                 - lambd * torch.log(C_real + TINY)
@@ -319,11 +319,9 @@ def train(trainset,batch_size):
                 _, C_fake = C(D_fake)
                 P_fake = torch.clamp(P_fake, 0. + eps, 1. - eps)
                 C_fake = torch.clamp(C_fake, 0. + eps, 1. - eps)
-                # binary_class_y_fake = torch.zeros(batch_size, 2)
-
-                # ### 
-                # binary_class_y_fake[:, 0] = 1.
-                P_fake_prim = P_fake * C_real + (1. - C_fake) * binary_class_y_fake
+                b = Variable(torch.bernoulli(torch.Tensor(C_fake.size()).uniform_(0, 1))).cuda()
+                C_fake = C_fake * b + (1 - b)
+                P_fake_prim = P_fake * C_fake + (1. - C_fake) * binary_class_y_fake
                 D_fake_loss = torch.sum(- torch.log(P_fake_prim + TINY) * binary_class_y_fake, 1).reshape((batch_size, 1))\
                                 - lambd * torch.log(C_fake + TINY)
 
@@ -345,7 +343,8 @@ def train(trainset,batch_size):
 
                 _, P_result = P(D_result)
                 _, C_result = C(D_result)
-                ########
+                b = Variable(torch.bernoulli(torch.Tensor(C_result.size()).uniform_(0, 1))).cuda()
+                C_result = C_result * b + (1 - b)
                 P_result_prim = P_result * C_result + (1. - C_result) * binary_class_y_real 
                 D_result_loss = torch.sum(- torch.log(P_result_prim + TINY) * binary_class_y_real, 1) \
                                 - lambd * torch.log(C_result + TINY)
@@ -445,29 +444,12 @@ def main(flag):
     isize = 32
     if flag == 1:
         ##train 
-        trainset = 'Cifar100'
-        # trainset = 'Cifar10'
+        # trainset = 'Cifar100'
+        trainset = 'Cifar10'
         trainset = load(trainset,train_batch_size,flag,isize)
         length = len(trainset)
         print("Train set batch number:", length)
         train(trainset,train_batch_size)
-    # else:
-    #     # testset :Imagenet ,Imagenet_resize,LSUN,LSUN_resize，iSUN
-    #     # testout = ["Imagenet","Imagenet_resize","LSUN","LSUN_resize","iSUN","Gaussian","Uniform"]
-    #     # testout = ["Imagenet_resize"]
-    #     testout = ["Imagenet_resize","LSUN","LSUN_resize","iSUN","Gaussian","Uniform"]
-    #     testin = ["Cifar100","Cifar10"]
-    #     for testdataset in testout:
-            
-    #         if testdataset =="Gaussian" or testdataset=="Uniform":
-    #             testsetin = 'Cifar10'
-    #             testsetinloader = load(testsetin,test_batch_size,flag,isize)
-    #             testNoise(testsetinloader,testdataset,test_batch_size)
-    #         else:
-    #             testsetin = 'Cifar10'
-    #             testsetin = load(testsetin,test_batch_size,flag,isize)
-    #             testsetout = load(testdataset,test_batch_size,flag,isize)
-    #             test(testdataset,testsetin,testsetout,test_batch_size)
 if __name__ == '__main__':
     # 1 train 0 test
     main(1)

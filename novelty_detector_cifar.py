@@ -82,7 +82,7 @@ def Cutout(n_holes, length,train_set,train_label):
     for i,img in enumerate(train_set):
         p = random.random()
         # print(p)
-        if p > 0.6:
+        if p > 0.5:
             h = img.shape[0]
             w = img.shape[1]
             c = img.shape[2]
@@ -145,7 +145,7 @@ def load(dataset,batch_size,flag,isize):
     if dataset == "Cifar10" and flag == 0:
         transform = transforms.Compose(
             [
-                transforms.Scale(32),
+                transforms.Scale(isize),
                 transforms.ToTensor(),
                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
             ]
@@ -170,7 +170,8 @@ def load(dataset,batch_size,flag,isize):
         transform = transforms.Compose(
             [
             transforms.ToTensor(),
-            transforms.Normalize((125.3/255, 123.0/255, 113.9/255), (63.0/255, 62.1/255.0, 66.7/255.0)),
+            # transforms.Normalize((125.3/255, 123.0/255, 113.9/255), (63.0/255, 62.1/255.0, 66.7/255.0)),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
             ]
         )
         dataset = torchvision.datasets.ImageFolder("./data/{}/".format(dataset), transform=transform)
@@ -189,7 +190,6 @@ def test(testdataset,testsetin,testsetout,batch_size):
     outlier_count = len(testsetout)
     print("inlier number:" + str(inliner_count*batch_size))
     print("outlier number:" + str(outlier_count*batch_size))
-    # print(outlier_count)
     for j in range(0,test_epoch):
         epoch = j
         
@@ -253,13 +253,13 @@ def test(testdataset,testsetin,testsetout,batch_size):
 
             z = E(x).view(-1, z_size, 1, 1)
             x_d = G(z)
-            # if it % 80 ==0:
-            #     directory = 'Test/Cifar'
-            #     # if not os.path.exists(directory):
-            #     #     os.makedirs(directory)
-            #     # comparison = torch.cat([x[:4], x_d[:4]])
-            #     save_image(comparison,
-            #                 'Test/Cifar/reconstruction_True_'+ str(epoch)+'_'+ str(it) + '.png', nrow=4)
+            if it % 80 ==0:
+                directory = 'Test/Cifar'
+                if not os.path.exists(directory):
+                    os.makedirs(directory)
+                comparison = torch.cat([x[:4], x_d[:4]])
+                save_image(comparison,
+                            'Test/Cifar/reconstruction_True_'+ str(epoch)+'_'+ str(it) + '.png', nrow=4)
         # print(len(X_score))
         # length2 = len(testsetout) // batch_size
         labelout = torch.zeros(outlier_count*batch_size)
@@ -275,16 +275,16 @@ def test(testdataset,testsetin,testsetout,batch_size):
                 _, D_score = P(D_score)
                 D_result = D_score.squeeze().detach().cpu().numpy()
                 X_score.append(D_result)
-                
-                # z = E(x).view(-1, z_size, 1, 1)
-                # x_d = G(z)
-                # if it % 80 ==0:
-                #     directory = 'Test/Cifar'
-                #     if not os.path.exists(directory):
-                #         os.makedirs(directory)
-                #     comparison = torch.cat([x[:4], x_d[:4]])
-                #     save_image(comparison,
-                #                 'Test/Cifar/reconstruction_False_'+ str(epoch)+'_'+ str(it) + '.png', nrow=4)
+
+                z = E(x).view(-1, z_size, 1, 1)
+                x_d = G(z)
+                if it % 80 ==0:
+                    directory = 'Test/Cifar'
+                    if not os.path.exists(directory):
+                        os.makedirs(directory)
+                    comparison = torch.cat([x[:4], x_d[:4]])
+                    save_image(comparison,
+                                'Test/Cifar/reconstruction_False_'+ str(epoch)+'_'+ str(it) + '.png', nrow=4)
             else:
                 break
         label = torch.cat((labelin,labelout),0).int()
@@ -570,7 +570,7 @@ def main(flag):
         testout = ["Imagenet_resize"]
         # testout = ["Imagenet_resize","LSUN","LSUN_resize","iSUN","Gaussian","Uniform"]
         # testin = ["Cifar100","Cifar10"]
-        testsetin = "Cifar100"
+        testsetin = "Cifar10"
         for testdataset in testout:
             
             if testdataset =="Gaussian" or testdataset=="Uniform":
