@@ -102,7 +102,9 @@ def test(p):
 
         ## combine them into test dataset
         inliner_count = len(mnist_train)
+        print(inliner_count)
         outlier_count = inliner_count * percentage // (100 - percentage)
+        print(outlier_count)
         mnist_test_outlier = mnist_test[:outlier_count]
         
         mnist_test = mnist_test_outlier + mnist_train
@@ -129,7 +131,7 @@ def test(p):
         # print(mnist_test_y)
         #######################################################
         # print("start testing")
-        batch_size = 128
+        batch_size = 1
         mnist_train = []
         z_size = 32
         test_epoch = 20
@@ -138,7 +140,7 @@ def test(p):
         best_prc_auc = 0
         best_f1_score = 0
 
-        for j in range(0,test_epoch):
+        for j in range(19,test_epoch):
             epoch = j
             #print("testing epoch is "+ str(epoch))
             G = Generator(z_size)
@@ -187,6 +189,9 @@ def test(p):
                 _, D_score = P(D_score)
                 D_result = D_score.squeeze().detach().cpu().numpy()
                 X_score.append(D_result)
+
+                # if it == 67:
+                print(D_result)
                 #############D(R(X))
                 # z = E(x)
                 # x_fake = G(z).detach()
@@ -211,8 +216,8 @@ def test(p):
         print(best_f1_score)
     return None
 def main():  
-    percentages = [10, 20, 30, 40, 50]
-    # percentages = [50]
+    #percentages = [10, 20, 30, 40, 50]
+    percentages = [10]
     results = {}
 
     for p in percentages:

@@ -80,7 +80,7 @@ def Cutout(n_holes, length,train_set):
     for i,img in enumerate(train_set):
         p = random.random()
         # print(p)
-        if p > 0.6:
+        if p > 0.5:
             h = img.shape[0]
             w = img.shape[1]
             c = img.shape[2]
@@ -115,7 +115,7 @@ def Cutout(n_holes, length,train_set):
 def main(folding_id, inliner_classes, total_classes):
     # new hyperparameter
     n_class = 1
-    lambd = 0.5
+    lambd = 0.1
     batch_size = 32
     zsize = 100
     cutout = True # whether cover the img
@@ -124,8 +124,8 @@ def main(folding_id, inliner_classes, total_classes):
     TINY = 1e-15
     isize = 32
     workers = 8
-    train_epoch = 500
-    lr = 2e-4
+    train_epoch = 300
+    lr = 0.002
     for i in range(1):
         print('start loading data')
         train_data = load_OC_train_data(n_class, isize)
@@ -192,13 +192,13 @@ def main(folding_id, inliner_classes, total_classes):
 
                 binary_class_y_real = torch.zeros(batch_size, 2)
                 for i in range(batch_size):
-                    binary_class_y_real[i][0] = 0.99
-                    binary_class_y_real[i][1] = 0.01
+                    binary_class_y_real[i][0] = 0.999
+                    binary_class_y_real[i][1] = 0.001
                 
                 binary_class_y_fake = torch.zeros(batch_size, 2)
                 for i in range(batch_size):
-                    binary_class_y_fake[i][0] = 0.99
-                    binary_class_y_fake[i][1] = 0.01
+                    binary_class_y_fake[i][0] = 0.001
+                    binary_class_y_fake[i][1] = 0.999
 
                 #############################################
 
@@ -256,7 +256,8 @@ def main(folding_id, inliner_classes, total_classes):
                     eps = 1e-12
                     P_real = torch.clamp(P_real, 0. + eps, 1. - eps)
                     C_real = torch.clamp(C_real, 0. + eps, 1. - eps)
-                    
+                    b = Variable(torch.bernoulli(torch.Tensor(C_real.size()).uniform_(0, 1))).cuda()
+                    C_real = C_real * b + (1 - b)
                     P_real_prim = P_real * C_real + (1. - C_real) * binary_class_y_real
                     D_real_loss = torch.sum(- torch.log(P_real_prim + TINY) * binary_class_y_real, 1).reshape((batch_size, 1))\
                                   - lambd * torch.log(C_real + TINY)
@@ -265,7 +266,8 @@ def main(folding_id, inliner_classes, total_classes):
                     _, C_fake = C(D_fake)
                     P_fake = torch.clamp(P_fake, 0. + eps, 1. - eps)
                     C_fake = torch.clamp(C_fake, 0. + eps, 1. - eps)
-                    
+                    b = Variable(torch.bernoulli(torch.Tensor(C_fake.size()).uniform_(0, 1))).cuda()
+                    C_fake = C_fake * b + (1 - b)
                     P_fake_prim = P_fake * C_real + (1. - C_fake) * binary_class_y_fake
                     D_fake_loss = torch.sum(- torch.log(P_fake_prim + TINY) * binary_class_y_fake, 1).reshape((batch_size, 1))\
                                   - lambd * torch.log(C_fake + TINY)
@@ -289,6 +291,8 @@ def main(folding_id, inliner_classes, total_classes):
                     _, P_result = P(D_result)
                     _, C_result = C(D_result)
                     ########
+                    b = Variable(torch.bernoulli(torch.Tensor(C_result.size()).uniform_(0, 1))).cuda()
+                    C_result = C_result * b + (1 - b)
                     P_result_prim = P_result * C_result + (1. - C_result) * binary_class_y_real 
                     D_result_loss = torch.sum(- torch.log(P_result_prim + TINY) * binary_class_y_real, 1) \
                                     - lambd * torch.log(C_result + TINY)
@@ -301,7 +305,7 @@ def main(folding_id, inliner_classes, total_classes):
             z = E(x).view(-1, zsize, 1, 1)
             x_d = G(z)
 
-            if epoch % 100 ==0:
+            if epoch % 50 ==0:
                 directory = 'Train/Caltech256'
                 if not os.path.exists(directory):
                     os.makedirs(directory)

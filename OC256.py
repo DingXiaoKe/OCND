@@ -9,6 +9,7 @@ RECORD_FILE = 'Caltech.txt'
 def load_OC_train_data(n_class, input_size, load_flag=False):
 
     class_paths = os.listdir(BASE_PATH)
+    # print(class_paths)
     if load_flag:
         class_paths = []
         with open(RECORD_FILE, "r") as fp:
@@ -20,12 +21,16 @@ def load_OC_train_data(n_class, input_size, load_flag=False):
             os.remove(RECORD_FILE)
 
     assert n_class <= len(class_paths), "class numbers selected is too larger than the dataset"
-
+    # selected = []
     selected = np.random.choice(len(class_paths), n_class, replace=False)
-    
+    # selected.append(24)
+    # print(selected)
     datas = []
     for class_path in np.array(class_paths)[selected]:
-        full_class_path = '{}/{}'.format(BASE_PATH, class_path)
+        # full_class_path = '{}/{}'.format(BASE_PATH, class_path)
+        full_class_path = 'data/256_ObjectCategories/024.butterfly'
+        class_path = '024.butterfly'
+        print(full_class_path)
         if not load_flag:
             with open(RECORD_FILE, "a+") as fp:
                 fp.write("{}\n".format(class_path))

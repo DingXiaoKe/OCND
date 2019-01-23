@@ -182,7 +182,7 @@ def test():
             # R_roc_auc = evaluate(labels= binary_class_labels, scores= X_R_score, directory=path, metric='roc')
             # R_f1_score = evaluate(labels= labels, scores= X_R_score, directory=path, metric='f1_score')
             print(roc_auc, f1_score)
-            if f1_score > best_f1_score and roc_auc > best_roc_auc:
+            if f1_score >= best_f1_score and roc_auc >= best_roc_auc:
               best_f1_score = f1_score
               best_roc_auc = roc_auc
             # if R_f1_score > best_R_f1_score:

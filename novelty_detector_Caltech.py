@@ -86,22 +86,23 @@ def test():
     for i in range(1):
         #######################################################
         inliner_data = load_OC_train_data(1, 32, load_flag=True)
+        print(len(inliner_data))
         outliner_data = load_OC_test_data(32)[:len(inliner_data)]
         test_x = inliner_data + outliner_data
         test_y = [1 for i in range(len(inliner_data))]\
                 +[0 for i in range(len(outliner_data))]
         #######################################################
         # print("start testing")
-        batch_size = 128
+        batch_size = 1
         z_size = 100
-        test_epoch = 500
+        test_epoch = 300
         
         best_roc_auc = 0
         best_prc_auc = 0
         best_f1_score = 0
-        best_R_f1_score = 0
-        best_R_roc_auc = 0
-        for j in range(0,test_epoch):
+        # best_R_f1_score = 0
+        # best_R_roc_auc = 0
+        for j in range(59,60):
             epoch = j
             
             G = Generator(z_size, channels=3)
@@ -146,8 +147,9 @@ def test():
             X_score = []
             X_R_score = []
             length = len(test_x) // batch_size
-            
+            i = 0
             for batch in next_batch(test_x, batch_size):
+                i = i + 1
                 x = Variable(numpy2torch(np.array(batch))).view(-1, 3, 32, 32)
                 ###########D(x)
                 D_score, _ = D(x)
@@ -156,18 +158,22 @@ def test():
                 D_result = D_score.squeeze().detach().cpu().numpy()
                 X_score.append(D_result)
 
-                #############D(R(X))
-                z = E(x).view(-1, z_size, 1, 1)
-                x_fake = G(z).detach()
-                D_fake, _ = D(x_fake)
-                D_fake = D_fake.reshape((batch_size, 1))
-                _, D_fake = P(D_fake)
-                D_fake = D_fake.squeeze().detach().cpu().numpy()
-                X_R_score.append(D_fake)
+                # z = E(x).view(-1, z_size, 1, 1)
+                # x_d = G(z)
+                
+                # if  i % 10 ==0:
+                directory = 'Test/Caltech256'
+                if not os.path.exists(directory):
+                    os.makedirs(directory)
+                # comparison = torch.cat([x[:1], x_d[:1]])
+                save_image(x,'Test/Caltech256/reconstruction_'+str(i)+'_'+str(D_result[0])+ '.png')
+                # save_image(x_d,'Test/Caltech256/reconstruction_f'+str(epoch)+'_'+ str(i) + '.png')
+                print(D_result)
+                # print(D_result)
+            
             # print("start calculating")
             X_score = np.array(X_score).reshape(length*batch_size, 2)
-            X_R_score = np.array(X_R_score).reshape(length*batch_size, 2)
-            #print(X_score)
+            
             anomaly_score = X_score
             labels = test_y[0:length*batch_size]
             binary_class_labels = np.zeros((length*batch_size, 2))
@@ -176,21 +182,14 @@ def test():
             path = "./Test/Caltech/"
             roc_auc = evaluate(labels= binary_class_labels, scores= anomaly_score, directory=path, metric='roc')
             f1_score = evaluate(labels= labels, scores= anomaly_score, directory=path, metric='f1_score')
-            R_roc_auc = evaluate(labels= binary_class_labels, scores= X_R_score, directory=path, metric='roc')
-            R_f1_score = evaluate(labels= labels, scores= X_R_score, directory=path, metric='f1_score')
-            # print(roc_auc, f1_score)
-            if f1_score > best_f1_score:
+            
+            print(roc_auc, f1_score)
+            if f1_score >= best_f1_score and roc_auc >= best_roc_auc:
               best_f1_score = f1_score
-            if roc_auc > best_roc_auc:
               best_roc_auc = roc_auc
-            if R_f1_score > best_R_f1_score:
-              best_R_f1_score = R_f1_score
-            if R_roc_auc > best_R_roc_auc:
-              best_R_roc_auc = R_roc_auc
+    
         print(best_roc_auc)
         print(best_f1_score)
-        print(best_R_roc_auc)
-        print(best_R_f1_score)
         
         
         path = "./Test/Caltech/"
@@ -200,10 +199,6 @@ def test():
             opt_file.write('%s' %(str(best_roc_auc))+'\n')
             opt_file.write('---best_f1_score----\n')
             opt_file.write('%s' %(str(best_f1_score))+'\n')
-            opt_file.write('---best_R_roc_auc----\n')
-            opt_file.write('%s' %(str(best_R_roc_auc))+'\n')
-            opt_file.write('---best_R_f1_score----\n')
-            opt_file.write('%s' %(str(best_R_f1_score))+'\n')
             opt_file.write('----------\n')
     return None
 def main():  
